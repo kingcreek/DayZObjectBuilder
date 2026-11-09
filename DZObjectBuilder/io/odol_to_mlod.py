@@ -56,6 +56,8 @@
 #             winding reversal beyond following the same reversed index order.
 
 
+import os
+
 from . import data_p3d as p3d
 
 
@@ -251,6 +253,26 @@ def repair_degenerate_normals(lod):
     return len(suspect)
 
 
+# What to do with the ModelInfo bounding centre when importing a binarized model.
+#   "always"            add it back to every vertex: the editable-MLOD frame (original behaviour)
+#   "never"             keep the vertices as stored in the ODOL (the frame the engine places)
+#   "if_autocenter_off" add it back only when the model's autocenter flag is off
+#   "if_autocenter_on"  add it back only when the model's autocenter flag is on
+# Set DZOB_ODOL_CENTER in the environment to change it without touching the add-on.
+CENTER_MODE = os.environ.get("DZOB_ODOL_CENTER", "always").strip().lower()
+
+
+def import_center(odol_file):
+    mode = CENTER_MODE
+    if mode == "never":
+        return (0.0, 0.0, 0.0)
+    if mode == "if_autocenter_off" and odol_file.autocenter:
+        return (0.0, 0.0, 0.0)
+    if mode == "if_autocenter_on" and not odol_file.autocenter:
+        return (0.0, 0.0, 0.0)
+    return odol_file.bounding_center
+
+
 def convert_lod(lod, masses = (), center = (0.0, 0.0, 0.0)):
     output = p3d.P3D_LOD()
     output.resolution = p3d.P3D_LOD_Resolution.from_float(lod.resolution)
@@ -332,7 +354,7 @@ def convert(odol_file):
 
     for lod in odol_file.lods:
         try:
-            output.lods.append(convert_lod(lod, odol_file.masses, odol_file.bounding_center))
+            output.lods.append(convert_lod(lod, odol_file.masses, import_center(odol_file)))
         except Exception as ex:
             output.failed_lods.append((lod.index, str(ex)))
 

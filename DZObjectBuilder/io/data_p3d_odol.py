@@ -101,6 +101,8 @@ class ODOL_ModelInfo():
         self.skeleton = ODOL_Skeleton()
         self.masses = []
         self.bounding_center = (0.0, 0.0, 0.0)
+        self.autocenter = True
+        self.lock_autocenter = False
 
 
 def read_model_info(file, version, file_size):
@@ -113,7 +115,11 @@ def read_model_info(file, version, file_size):
     output.bounding_center = tuple(binary.read_floats(file, 3))
     file.seek(4 * 3 * 2, 1)         # geometry and mass centres
     file.seek(4 * 9, 1)             # inv_inertia
-    file.seek(5, 1)                 # autocenter .. allow_animation
+    flags = file.read(5)            # autocenter .. allow_animation
+    if len(flags) < 5:
+        raise EOFError("File ends inside the ModelInfo flags")
+    output.autocenter = bool(flags[0])
+    output.lock_autocenter = bool(flags[1])
     if version >= 56:
         file.seek(4, 1)
     file.seek(4 * 6, 1)             # thermal_profile
@@ -1069,6 +1075,8 @@ class ODOL_File():
         self.animations = ODOL_Animations()
         self.masses = []
         self.bounding_center = (0.0, 0.0, 0.0)
+        self.autocenter = True
+        self.lock_autocenter = False
         self.resolutions = []
         self.lod_starts = []
         self.lod_ends = []
@@ -1120,6 +1128,8 @@ class ODOL_File():
         output.skeleton = model_info.skeleton
         output.masses = model_info.masses
         output.bounding_center = model_info.bounding_center
+        output.autocenter = model_info.autocenter
+        output.lock_autocenter = model_info.lock_autocenter
 
         read_lod_table(file, output, count_lods, file_size)
 
